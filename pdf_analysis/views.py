@@ -13,6 +13,12 @@ import pickle
 import torch.nn.functional as F
 import re
 from django.conf import settings  # Import the settings module
+from django.http import JsonResponse
+import torch.nn as nn
+from django.views.decorators.csrf import csrf_exempt
+import joblib
+import hashlib
+import torch.nn.functional as F
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
