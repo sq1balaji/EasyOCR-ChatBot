@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        #chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            flex-direction: column;
+            height: 500px;
+        }
+        #chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            cursor: pointer;
+        }
+        #chat-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 10px;
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: 400px;
+        }
+        .chat-button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .chat-button:hover {
+            background-color: #0056b3;
+        }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: block;
+            margin-top: 10px;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+        }
+        #conversation {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .bot-message {
+            background-color: #e1f5fe;
+            text-align: left;
+        }
+        .user-message {
+            background-color: #d1e7dd;
+            text-align: right;
+        }
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        #open-chatbot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <button id="open-chatbot">💬</button>
+    <div id="chatbot-container">
+        <div id="chat-header">Chatbot</div>
+        <div id="chat-body">
+            <div id="conversation"></div>
+        </div>
+        <input type="text" id="input-field" placeholder="Enter input here..." disabled />
+    </div>
+
+    <script>
+$(document).ready(function() {
+    let selectedAction = ''; // Store the selected action
+    let comboStep = 0; // Track combo code workflow steps
+
+    $('#open-chatbot').click(function() {
+        $('#chatbot-container').fadeIn();
+        $(this).hide();
+        showButtons();
+    });
+
+    $('#chat-header').click(function() {
+        $('#chatbot-container').fadeOut();
+        $('#open-chatbot').show();
+    });
+
+    function addMessage(sender, text) {
+        let avatar = sender === 'bot' ? '<img src="bot_logo.png" class="avatar">' : '<img src="user_logo.png" class="avatar">';
+        let messageClass = sender === 'bot' ? 'bot-message' : 'user-message';
+        $('#conversation').append('<div class="message ' + messageClass + '">' + avatar + text + '</div>');
+        $('#conversation').scrollTop($('#conversation')[0].scrollHeight);
+    }
+
+    function showButtons() {
+        $('#chat-body').find('.chat-button').remove();
+        $('#input-field').prop('disabled', true);
+
+        const buttonsHtml = `
+            <button class="chat-button" id="code_to_description_btn">Code to Description</button>
+            <button class="chat-button" id="description_to_code_btn">Description to Code</button>
+            <button class="chat-button" id="combo_code_btn">Combo Code</button>
+        `;
+        $('#chat-body').append(buttonsHtml);
+    }
+
+    function hideButtons() {
+        $('.chat-button').remove();
+    }
+
+    function handleBotResponse(response) {
+        if (response.descriptions) {
+            addMessage('bot', 'Predicted Descriptions: ' + response.descriptions.join(', '));
+        } else if (response.code_from_desc) {
+            addMessage('bot', `Predicted Code: ${response.code_from_desc.code} (Confidence: ${response.code_from_desc.confidence})`);
+        } else if (response.combo_code) {
+            addMessage('bot', 'Predicted Combo Code: ' + response.combo_code);
+        } else if (response.error) {
+            addMessage('bot', 'Error: ' + response.error);
+        }
+        showButtons();
+    }
+
+    // Button click handling with action setting
+    $('#chat-body').on('click', '#code_to_description_btn', function() {
+        selectedAction = 'predict_description';
+        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the code');
+        addMessage('bot', 'Enter the code');
+        hideButtons();
+    });
+
+    $('#chat-body').on('click', '#description_to_code_btn', function() {
+        selectedAction = 'predict_code';
+        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the description');
+        addMessage('bot', 'Enter the description');
+        hideButtons();
+    });
+
+    $('#chat-body').on('click', '#combo_code_btn', function() {
+        selectedAction = 'predict_combo_code';
+        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the primary code');
+        addMessage('bot', 'Enter the primary code');
+        hideButtons();
+        comboStep = 1;
+    });
+
+    $('#input-field').on('keypress', function(event) {
+        if (event.key === 'Enter') {
+            const userInput = $(this).val().trim();
+            if (userInput !== '') {
+                addMessage('user', userInput);
+                $(this).val('');
+
+                if (comboStep === 1) {
+                    addMessage('bot', 'Enter the secondary code');
+                    $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the secondary code');
+                    comboStep = 2;
+                } else if (comboStep === 2) {
+                    processComboCode(userInput);
+                    comboStep = 0;
+                } else {
+                    $.ajax({
+                        type: 'POST',
+                        url: 'http://127.0.0.1:8000/api/chatbot/',
+                        data: {
+                            'action': selectedAction,
+                            'user_input': userInput,
+                            'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val(),
+                        },
+                        success: function(response) {
+                            handleBotResponse(response);
+                        },
+                        error: function(xhr, status, error) {
+                            addMessage('bot', 'An error occurred. Please try again.');
+                            showButtons();
+                        }
+                    });
+                }
+            }
+        }
+    });
+
+    function processComboCode(secondaryCode) {
+        const primaryCode = $('#input-field').val().trim();
+        const comboCode = primaryCode + "-" + secondaryCode;
+        // addMessage('bot', 'Processing Combo Code: ' + comboCode);
+        setTimeout(function() {
+            addMessage('bot', 'Predicted Combo Code: ' + comboCode);
+            showButtons();
+        }, 1000);
+    }
+});
+</script>
+    
+</body>
+</html>
