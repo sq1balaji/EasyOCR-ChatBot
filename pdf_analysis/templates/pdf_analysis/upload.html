@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload PDF for Analysis</title>
+    <!-- Link to Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Add some custom animation for the submit button */
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex justify-center items-center h-screen">
+
+    <!-- Main Form Container -->
+    <div class="bg-white shadow-lg rounded-lg p-8 max-w-lg w-full fade-in">
+        <h2 class="text-3xl font-semibold text-center text-indigo-600 mb-6">Upload PDF for Analysis</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="space-y-6">
+                <!-- File Upload Field -->
+                <div class="flex flex-col">
+                    <label for="file" class="text-lg font-medium text-gray-700 mb-2">Select PDF to Upload</label>
+                    {{ form.as_p }}
+                </div>
+                
+                <!-- Submit Button with Animation -->
+                <div class="flex justify-center">
+                    <button type="submit" class="bg-indigo-600 text-white py-2 px-6 rounded-full shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105">
+                        Upload
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tailwind Toast for success or error messages -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg opacity-0 transition-opacity duration-500">
+        <p class="font-medium">PDF successfully uploaded!</p>
+    </div>
+
+    
+</body>
+</html>
