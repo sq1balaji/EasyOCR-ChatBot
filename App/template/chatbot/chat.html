@@ -115,127 +115,146 @@
     </div>
 
     <script>
-$(document).ready(function() {
-    let selectedAction = ''; // Store the selected action
-    let comboStep = 0; // Track combo code workflow steps
-
-    $('#open-chatbot').click(function() {
-        $('#chatbot-container').fadeIn();
-        $(this).hide();
-        showButtons();
-    });
-
-    $('#chat-header').click(function() {
-        $('#chatbot-container').fadeOut();
-        $('#open-chatbot').show();
-    });
-
-    function addMessage(sender, text) {
-        let avatar = sender === 'bot' ? '<img src="bot_logo.png" class="avatar">' : '<img src="user_logo.png" class="avatar">';
-        let messageClass = sender === 'bot' ? 'bot-message' : 'user-message';
-        $('#conversation').append('<div class="message ' + messageClass + '">' + avatar + text + '</div>');
-        $('#conversation').scrollTop($('#conversation')[0].scrollHeight);
-    }
-
-    function showButtons() {
-        $('#chat-body').find('.chat-button').remove();
-        $('#input-field').prop('disabled', true);
-
-        const buttonsHtml = `
-            <button class="chat-button" id="code_to_description_btn">Code to Description</button>
-            <button class="chat-button" id="description_to_code_btn">Description to Code</button>
-            <button class="chat-button" id="combo_code_btn">Combo Code</button>
-        `;
-        $('#chat-body').append(buttonsHtml);
-    }
-
-    function hideButtons() {
-        $('.chat-button').remove();
-    }
-
-    function handleBotResponse(response) {
-        if (response.descriptions) {
-            addMessage('bot', 'Predicted Descriptions: ' + response.descriptions.join(', '));
-        } else if (response.code_from_desc) {
-            addMessage('bot', `Predicted Code: ${response.code_from_desc.code} (Confidence: ${response.code_from_desc.confidence})`);
-        } else if (response.combo_code) {
-            addMessage('bot', 'Predicted Combo Code: ' + response.combo_code);
-        } else if (response.error) {
-            addMessage('bot', 'Error: ' + response.error);
-        }
-        showButtons();
-    }
-
-    // Button click handling with action setting
-    $('#chat-body').on('click', '#code_to_description_btn', function() {
-        selectedAction = 'predict_description';
-        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the code');
-        addMessage('bot', 'Enter the code');
-        hideButtons();
-    });
-
-    $('#chat-body').on('click', '#description_to_code_btn', function() {
-        selectedAction = 'predict_code';
-        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the description');
-        addMessage('bot', 'Enter the description');
-        hideButtons();
-    });
-
-    $('#chat-body').on('click', '#combo_code_btn', function() {
-        selectedAction = 'predict_combo_code';
-        $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the primary code');
-        addMessage('bot', 'Enter the primary code');
-        hideButtons();
-        comboStep = 1;
-    });
-
-    $('#input-field').on('keypress', function(event) {
-        if (event.key === 'Enter') {
-            const userInput = $(this).val().trim();
-            if (userInput !== '') {
-                addMessage('user', userInput);
-                $(this).val('');
-
-                if (comboStep === 1) {
-                    addMessage('bot', 'Enter the secondary code');
-                    $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the secondary code');
-                    comboStep = 2;
-                } else if (comboStep === 2) {
-                    processComboCode(userInput);
-                    comboStep = 0;
-                } else {
-                    $.ajax({
-                        type: 'POST',
-                        url: 'http://127.0.0.1:8000/api/chatbot/',
-                        data: {
-                            'action': selectedAction,
-                            'user_input': userInput,
-                            'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val(),
-                        },
-                        success: function(response) {
-                            handleBotResponse(response);
-                        },
-                        error: function(xhr, status, error) {
-                            addMessage('bot', 'An error occurred. Please try again.');
-                            showButtons();
-                        }
-                    });
-                }
+        $(document).ready(function() {
+            let selectedAction = ''; // Store the selected action
+            let comboStep = 0; // Track combo code workflow steps
+            let primaryCode = ''; // Store primary code
+        
+            $('#open-chatbot').click(function() {
+                $('#chatbot-container').fadeIn();
+                $(this).hide();
+                showButtons();
+            });
+        
+            $('#chat-header').click(function() {
+                $('#chatbot-container').fadeOut();
+                $('#open-chatbot').show();
+            });
+        
+            function addMessage(sender, text) {
+                let avatar = sender === 'bot' ? '<img src="bot_logo.png" class="avatar">' : '<img src="user_logo.png" class="avatar">';
+                let messageClass = sender === 'bot' ? 'bot-message' : 'user-message';
+                $('#conversation').append('<div class="message ' + messageClass + '">' + avatar + text + '</div>');
+                $('#conversation').scrollTop($('#conversation')[0].scrollHeight);
             }
-        }
-    });
-
-    function processComboCode(secondaryCode) {
-        const primaryCode = $('#input-field').val().trim();
-        const comboCode = primaryCode + "-" + secondaryCode;
-        // addMessage('bot', 'Processing Combo Code: ' + comboCode);
-        setTimeout(function() {
-            addMessage('bot', 'Predicted Combo Code: ' + comboCode);
-            showButtons();
-        }, 1000);
-    }
-});
-</script>
-    
+        
+            function showButtons() {
+                $('#chat-body').find('.chat-button').remove();
+                $('#input-field').prop('disabled', true);
+        
+                const buttonsHtml = `
+                    <button class="chat-button" id="code_to_description_btn">Code to Description</button>
+                    <button class="chat-button" id="description_to_code_btn">Description to Code</button>
+                    <button class="chat-button" id="combo_code_btn">Combo Code</button>
+                `;
+                $('#chat-body').append(buttonsHtml);
+            }
+        
+            function hideButtons() {
+                $('.chat-button').remove();
+            }
+        
+            function handleBotResponse(response) {
+                if (response.descriptions) {
+                    addMessage('bot', 'Predicted Descriptions: ' + response.descriptions.join(', '));
+                } else if (response.code_from_desc) {
+                    addMessage('bot', `Predicted Code: ${response.code_from_desc.code} (Confidence: ${response.code_from_desc.confidence})`);
+                } else if (response.combo_code) {
+                    addMessage('bot', 'Predicted Combo Code: ' + response.combo_code);
+                } else if (response.error) {
+                    addMessage('bot', 'Error: ' + response.error);
+                }
+                showButtons();
+            }
+        
+            // Button click handling
+            $('#chat-body').on('click', '#code_to_description_btn', function() {
+                selectedAction = 'predict_description';
+                $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the code');
+                addMessage('bot', 'Enter the code');
+                hideButtons();
+            });
+        
+            $('#chat-body').on('click', '#description_to_code_btn', function() {
+                selectedAction = 'predict_code';
+                $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the description');
+                addMessage('bot', 'Enter the description');
+                hideButtons();
+            });
+        
+            $('#chat-body').on('click', '#combo_code_btn', function() {
+                selectedAction = 'predict_combo_code';
+                comboStep = 1;
+                $('#input-field').prop('disabled', false).attr('placeholder', 'Enter the primary code');
+                addMessage('bot', 'Enter the primary code');
+                hideButtons();
+            });
+        
+            $('#input-field').on('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    const userInput = $(this).val().trim();
+                    if (userInput !== '') {
+                        addMessage('user', userInput);
+                        $(this).val('');
+        
+                        if (selectedAction === 'predict_combo_code') {
+                            if (comboStep === 1) {
+                                primaryCode = userInput;
+                                comboStep = 2;
+                                $('#input-field').attr('placeholder', 'Enter the secondary code');
+                                addMessage('bot', 'Enter the secondary code');
+                            } else if (comboStep === 2) {
+                                const secondaryCode = userInput;
+                                processComboCode(primaryCode, secondaryCode);
+                                comboStep = 0; 
+                            }
+                        } else {
+                            sendRequest(selectedAction, userInput);
+                        }
+                    }
+                }
+            });
+        
+            function processComboCode(primary, secondary) {
+                const combinedCodes = `${primary},${secondary}`;
+                $.ajax({
+                    type: 'POST',
+                    url: 'http://127.0.0.1:8000/api/chatbot/',
+                    data: {
+                        'action': 'predict_combo_code',
+                        'user_input': combinedCodes,
+                        'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val(),
+                    },
+                    success: function(response) {
+                        handleBotResponse(response);
+                    },
+                    error: function(xhr, status, error) {
+                        addMessage('bot', 'An error occurred. Please try again.');
+                        showButtons();
+                    }
+                });
+            }
+        
+            function sendRequest(action, input) {
+                $.ajax({
+                    type: 'POST',
+                    url: 'http://127.0.0.1:8000/api/chatbot/',
+                    data: {
+                        'action': action,
+                        'user_input': input,
+                        'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val(),
+                    },
+                    success: function(response) {
+                        handleBotResponse(response);
+                    },
+                    error: function(xhr, status, error) {
+                        addMessage('bot', 'An error occurred. Please try again.');
+                        showButtons();
+                    }
+                });
+            }
+        });
+        </script>
+            
 </body>
 </html>
