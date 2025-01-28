@@ -1,0 +1,13 @@
+django
+django-rest_framework
+torch
+torchvision
+pandas 
+numpy
+scikit-learn
+g4f
+spacy
+transformers
+spacy[transformers]
+pdf2image
+easyocr

@@ -2,3 +2,6 @@ __pycache__/
 Models/
 test.ipynb
 *.Identifier
+:Zone.Identifier
+*.Identifier
+media/
