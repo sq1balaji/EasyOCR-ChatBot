@@ -1,3 +1,8 @@
 :Zone.Identifier
 *.Identifier
-media/uploaded_pdfs
+media/
+__pycache__/
+db.sqlite3
+*.csv
+
+models 1/

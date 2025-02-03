@@ -20,8 +20,8 @@ import torch.nn as nn
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
-nlp_custom = spacy.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/Spacy-Models/model-best")
-nlp = spacy.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
+nlp_custom = spacy.load("/home/balaji/POC/EasyOCR-ChatBot/models 1/Spacy-Models/model-best")
+nlp = spacy.load("/home/balaji/POC/EasyOCR-ChatBot/models 1/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -40,19 +40,19 @@ class CodePredictionModel(torch.nn.Module):
         return self.fc(pooled_output)
 
 desc_model = CodePredictionModel(num_labels=14585)
-desc_model.load_state_dict(torch.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/final_model.pth", map_location=device))
+desc_model.load_state_dict(torch.load("/home/balaji/POC/EasyOCR-ChatBot/models 1/models/final.pth", map_location=device))
 desc_model.to(device)
 
-with open("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/label_encoder.pkl", "rb") as f:
+with open("/home/balaji/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl", "rb") as f:
     code_encoder = pickle.load(f)
 
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 # Load Model for Code Prediction
-with open("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/code_to_idx.pkl", 'rb') as f:
+with open("/home/balaji/POC/EasyOCR-ChatBot/models 1/models/code_to_idx.pkl", 'rb') as f:
     code_to_idx = pickle.load(f)
 
-with open('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/mlb_classes.pkl', 'rb') as f:
+with open('/home/balaji/POC/EasyOCR-ChatBot/models 1/models/mlb_classes.pkl', 'rb') as f:
     mlb_classes = pickle.load(f)
 
 num_codes = len(code_to_idx)
@@ -78,10 +78,10 @@ class MultiLabelModel(nn.Module):
 
 
 loaded_model = MultiLabelModel(num_codes, num_labels)
-loaded_model.load_state_dict(torch.load('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/diabetes_model.pth'))
+loaded_model.load_state_dict(torch.load('/home/balaji/POC/EasyOCR-ChatBot/models 1/models/diabetes_model.pth'))
 loaded_model.eval()
 
-with open('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/label_encoder.pkl', "rb") as f:
+with open('/home/balaji/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl', "rb") as f:
     label_encoder = pickle.load(f)
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -202,7 +202,9 @@ def chatbot(request):
             code, confidence = predict_code(user_input)
             response['code_from_desc'] = {'code': code, 'confidence': confidence}
 
+        # print('Top of the Combo code....')
         elif action == 'predict_combo_code' and ',' in user_input:
+            print('Inside Combo code')
             primary_code, secondary_code = user_input.split(',')
             response['combo_code'] = predict_combo_code(primary_code.strip(), secondary_code.strip())
 
@@ -235,16 +237,28 @@ def predict_code(description):
     predicted_code = label_encoder.inverse_transform([predicted_idx.cpu().item()])[0]
     return predicted_code, confidence.cpu().item()
 
+le_combo = joblib.load('/home/balaji/POC/EasyOCR-ChatBot/models 1/combo_code_models/label_encoder.pkl')
+loaded_combo_model = joblib.load('/home/balaji/POC/EasyOCR-ChatBot/models 1/combo_code_models/Decision_tree_model.pkl')
+
 def predict_combo_code(primary_code, secondary_code):
     primary_code = primary_code.strip().upper()
     secondary_code = secondary_code.strip().upper()
-    if primary_code not in le_combo.classes_ or secondary_code not in le_combo.classes_:
+
+    print('Inside Combo code func...')
+
+    # Try encoding the codes, return error if they are unknown
+    try:
+        primary_code_encoded = le_combo.transform([primary_code])[0]
+        secondary_code_encoded = le_combo.transform([secondary_code])[0]
+    except ValueError:
         return f"Error: One or both of the codes '{primary_code}' or '{secondary_code}' are not recognized."
-    primary_code_encoded = le_combo.transform([primary_code])[0]
-    secondary_code_encoded = le_combo.transform([secondary_code])[0]
-    combined_code = tuple(sorted([primary_code_encoded, secondary_code_encoded]))
-    combined_code_hashed = int(hashlib.sha256(str(combined_code).encode()).hexdigest(), 16) % (10 ** 8)
-    X_new = np.array([combined_code_hashed]).reshape(-1, 1)
+
+    # Prepare input feature (model expects two variations)
+    X_new = np.array([[primary_code_encoded, secondary_code_encoded], 
+                      [secondary_code_encoded, primary_code_encoded]])
+
+    # Predict combo code
     prediction_encoded = loaded_combo_model.predict(X_new)
-    prediction = le_combo.inverse_transform(prediction_encoded)
+    prediction = le_combo.inverse_transform([prediction_encoded[0]])  # Extract first value
+
     return prediction[0]
