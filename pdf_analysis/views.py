@@ -20,9 +20,12 @@ import torch.nn as nn
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
-nlp_custom = spacy.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/Spacy-Models/model-best")
+nlp_custom = spacy.load("/home/kishoreb/project@sq1/model (1)/model-best")
 nlp = spacy.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# le_combo = joblib.load("/home/kishoreb/project@sq1/label_encoder.pkl")
+# loaded_combo_model= joblib.load('/home/kishoreb/project@sq1/Random_forest_model_compressed_model.pkl')
 
 
 # x
@@ -115,15 +118,16 @@ def process_text_with_model(text):
 
     # Extract entities
     for ent in doc_custom.ents:
-        combined_entities.add((ent.text, ent.label_))
+        if ent.label_== 'DIAGNOSIS':
+            combined_entities.add((ent.text, ent.label_))
     for ent in doc_bc5cdr.ents:
-        if ent.label_ == 'DISEASE':
+        if ent.label_== 'DISEASE':
             combined_entities.add((ent.text, ent.label_))
 
     # Predict codes for extracted entities
     results = []
     for entity, label in combined_entities:
-        if label == "DISEASE":
+        if label == "DISEASE" or label == "DIAGNOSIS":
             predicted_code, confidence = desc_to_code(entity, desc_model, Code_Tokenizer, code_encoder, device)
             results.append((entity, predicted_code, confidence))
     return results
@@ -141,6 +145,7 @@ def process_page(image, page_number):
     results = reader.readtext(image_np)
     page_text = ' '.join([result[1] for result in results])
     page_text = clean_text(page_text)
+    print(page_text)
     
     # Calculate and print time taken for OCR
     ocr_time = time.time() - start_time
