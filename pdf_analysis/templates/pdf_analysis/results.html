@@ -195,8 +195,11 @@
                     <h4>Predicted Codes:</h4>
                     {% if model_results %}
                         <ul>
-                            {% for entity, code, confidence in model_results %}
-                                <li>{{ entity }}, <span style=" background-color:lightgray;">{{ code }}</span></li>
+                            {% for entity, code, confidence , label in model_results %}
+                            {% if confidence >= 0.5 %}
+                                <li>{{ entity }}, <span style=" background-color:lightgray;">{{ code }} , Label : {{ label }} , Confidence :  {{ confidence }}</span></li>
+                            {% endif %}
+                                </span></li>
                             {% endfor %}
                         </ul>
                     {% else %}
