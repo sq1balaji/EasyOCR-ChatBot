@@ -18,14 +18,18 @@ import hashlib
 import joblib
 import torch.nn as nn
 
+use_gpu = torch.cuda.is_available()
+print("💀 GPU Available:", use_gpu)
 # Load OCR and Models
-reader = easyocr.Reader(['en'], gpu=True)
-nlp_custom = spacy.load("/home/kishoreb/project@sq1/model (1)/model-best")
-nlp = spacy.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
+reader = easyocr.Reader(['en'], gpu=use_gpu)
+nlp_custom = spacy.load("/home/kishore/project@sq1/Notebooks/fianl_spacy-model/model-best")
+# nlp = spacy.load("/home/kishore/project@sq1/models 1/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
+nlp_500to628 = spacy.load("/home/kishore/project@sq1/Notebooks/501to628/kaggle/working/output/model-best")
+nlp_250to500 = spacy.load("/home/kishore/project@sq1/Notebooks/250to500/kaggle/working/output/model-best")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# le_combo = joblib.load("/home/kishoreb/project@sq1/label_encoder.pkl")
-# loaded_combo_model= joblib.load('/home/kishoreb/project@sq1/Random_forest_model_compressed_model.pkl')
+# le_combo = joblib.load("/home/kishore/project@sq1/label_encoder.pkl")
+# loaded_combo_model= joblib.load('/home/kishore/project@sq1/Random_forest_model_compressed 1.pkl')
 
 
 # x
@@ -43,19 +47,19 @@ class CodePredictionModel(torch.nn.Module):
         return self.fc(pooled_output)
 
 desc_model = CodePredictionModel(num_labels=14585)
-desc_model.load_state_dict(torch.load("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/final_model.pth", map_location=device))
+desc_model.load_state_dict(torch.load("/home/kishore/project@sq1/models 1/models/final_model.pth", map_location=device))
 desc_model.to(device)
 
-with open("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/label_encoder.pkl", "rb") as f:
+with open("/home/kishore/project@sq1/models 1/models/label_encoder.pkl", "rb") as f:
     code_encoder = pickle.load(f)
 
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 # Load Model for Code Prediction
-with open("/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/code_to_idx.pkl", 'rb') as f:
+with open("/home/kishore/project@sq1/models 1/models/code_to_idx.pkl", 'rb') as f:
     code_to_idx = pickle.load(f)
 
-with open('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/mlb_classes.pkl', 'rb') as f:
+with open('/home/kishore/project@sq1/models 1/models/mlb_classes.pkl', 'rb') as f:
     mlb_classes = pickle.load(f)
 
 num_codes = len(code_to_idx)
@@ -81,10 +85,10 @@ class MultiLabelModel(nn.Module):
 
 
 loaded_model = MultiLabelModel(num_codes, num_labels)
-loaded_model.load_state_dict(torch.load('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/diabetes_model.pth'))
+loaded_model.load_state_dict(torch.load('/home/kishore/project@sq1/models 1/models/diabetes_model.pth'))
 loaded_model.eval()
 
-with open('/home/kishoreb/project@sq1/POC_/POC_SQ1/predict/models/label_encoder.pkl', "rb") as f:
+with open('/home/kishore/project@sq1/models 1/models/label_encoder.pkl', "rb") as f:
     label_encoder = pickle.load(f)
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -113,55 +117,70 @@ def desc_to_code(description, desc_model, Code_Tokenizer, code_encoder, device, 
 
 def process_text_with_model(text):
     doc_custom = nlp_custom(text)
-    doc_bc5cdr = nlp(text)
+    # doc_bc5cdr = nlp(text)
+    doc_500to628 = nlp_500to628(text)
+    doc_250to500 = nlp_250to500(text)
     combined_entities = set()
 
     # Extract entities
     for ent in doc_custom.ents:
-        if ent.label_== 'DIAGNOSIS':
+        if ent.label_== 'diagnosis':
             combined_entities.add((ent.text, ent.label_))
-    for ent in doc_bc5cdr.ents:
-        if ent.label_== 'DISEASE':
+    for ent in doc_500to628.ents:
+        if ent.label_== 'diagnosis':
             combined_entities.add((ent.text, ent.label_))
+    for ent in doc_250to500.ents:
+        if ent.label_== 'diagnosis':
+            combined_entities.add((ent.text, ent.label_))
+
 
     # Predict codes for extracted entities
     results = []
     for entity, label in combined_entities:
-        if label == "DISEASE" or label == "DIAGNOSIS":
+        if label == "diagnosis":
             predicted_code, confidence = desc_to_code(entity, desc_model, Code_Tokenizer, code_encoder, device)
-            results.append((entity, predicted_code, confidence))
+            results.append((entity, predicted_code, confidence , label))
     return results
 
 # Function to process OCR and model analysis
 
 def process_page(image, page_number):
-    print(f"Processing page {page_number}...")
+    print("=" * 50)
+    print(f"📄 Processing Page {page_number}...")
 
     # Record the start time for OCR
-    start_time = time.time()
+    ocr_start_time = time.time()
     
     # Perform OCR on the image
     image_np = np.array(image)
     results = reader.readtext(image_np)
     page_text = ' '.join([result[1] for result in results])
     page_text = clean_text(page_text)
-    print(page_text)
+
+    # Calculate time taken for OCR
+    ocr_time = time.time() - ocr_start_time
+    print(f"🕒 OCR Time (Page {page_number}): {ocr_time:.2f} seconds")
     
-    # Calculate and print time taken for OCR
-    ocr_time = time.time() - start_time
-    print(f"Time taken for OCR on page {page_number}: {ocr_time:.2f} seconds")
+    # Display extracted text (only first 200 characters to avoid too much output)
+    print(f"🔍 Extracted Text  {page_text}")
 
     # Record the start time for model analysis
-    start_time = time.time()
+    analysis_start_time = time.time()
     
     # Perform model analysis
     model_results = process_text_with_model(page_text)
     
-    # Calculate and print time taken for analysis
-    analysis_time = time.time() - start_time
-    print(f"Time taken for analysis on page {page_number}: {analysis_time:.2f} seconds")
+    # Calculate time taken for analysis
+    analysis_time = time.time() - analysis_start_time
+    print(f"🤖 Model Analysis Time (Page {page_number}): {analysis_time:.2f} seconds")
+
+    # Total time taken for the page
+    total_time = ocr_time + analysis_time
+    print(f"✅ Total Processing Time (Page {page_number}): {total_time:.2f} seconds")
+    print("=" * 50)
     
     return page_text, model_results
+
 
 # PDF Upload Handling
 
@@ -179,7 +198,7 @@ def upload_pdf(request):
             results = []
 
             # Process the uploaded PDF
-            images = convert_from_path(pdf_path, dpi=200)
+            images = convert_from_path(pdf_path, dpi=350)
             for i, image in enumerate(images, 1):
                 page_text, model_results = process_page(image, i)
                 results.append((i, page_text, model_results))
