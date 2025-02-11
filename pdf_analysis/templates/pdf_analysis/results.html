@@ -184,28 +184,46 @@
     </style>
 </head>
 <body>
-    <div class="content-left">
-        <h2>Analysis Results</h2>
-
-        <div class="result-container">
-            {% for page, text, model_results in results %}
-                <div class="result">
-                    <h3>Page {{ page }}</h3>
-                    <p></p>
-                    <h4>Predicted Codes:</h4>
-                    {% if model_results %}
-                        <ul>
-                            {% for entity, code, confidence in model_results %}
-                                <li>{{ entity }}, <span style=" background-color:lightgray;">{{ code }}</span></li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="no-results">No prediction codes available.</p>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
+    <div class="result-container">
+        {% for page, text, model_results in results %}
+            <div class="result">
+                <h3>Page {{ page }}</h3>
+                <p></p>
+                <h4>Predicted Codes:</h4>
+                {% if model_results %}
+                    <ul>
+                        {% for entity_info in model_results %}
+                            {% if entity_info.3 == "DIAGNOSIS" %}
+                                <li>
+                                    {{ entity_info.0 }},
+                                    <span style="background-color:lightgray;">
+                                        {{ entity_info.1 }} {{ entity_info.3 }} {{ entity_info.2 }}
+                                    </span>
+                                </li>
+                            {% elif entity_info.3 == "DATE" %}
+                                <li>
+                                    {{ entity_info.0 }},
+                                    <span style="background-color:lightgray;">
+                                        {{ entity_info.3 }} - {{ entity_info.4 }}
+                                    </span>
+                                </li>
+                            {% else %}
+                                <li>
+                                    {{ entity_info.0 }},
+                                    <span style="background-color:lightgray;">
+                                        {{ entity_info.3 }}
+                                    </span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="no-results">No prediction codes available.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
     </div>
+    
 
     <div class="content-right">
         <h2>Uploaded PDF</h2>

@@ -1,8 +1,27 @@
 :Zone.Identifier
 *.Identifier
-media/
+
 __pycache__/
 db.sqlite3
 *.csv
 
 models 1/
+output/
+output_person/
+PDO/
+Person_date_output/
+
+*.json
+*.pkl
+
+*.spacy
+Annotated/
+
+*.config
+*.cfg
+*.pth
+*.sqlite3
+
+media/uploadde_pdfs/
+uploaded_pdfs/
+output_lr*/
