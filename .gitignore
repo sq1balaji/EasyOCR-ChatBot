@@ -1,6 +1,7 @@
 :Zone.Identifier
 *.Identifier
 
+media/
 __pycache__/
 db.sqlite3
 *.csv
@@ -8,6 +9,9 @@ db.sqlite3
 models 1/
 output/
 output_person/
+output_person1/
+output_person2/
+person/
 PDO/
 Person_date_output/
 

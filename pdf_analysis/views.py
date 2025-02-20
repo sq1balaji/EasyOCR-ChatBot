@@ -22,12 +22,11 @@ import torch.nn as nn
 reader = easyocr.Reader(['en'], gpu=True)
 nlp_custom = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/model-best")
 nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/output/model-best")
-nlp_person = spacy.load('en_core_web_sm')
+nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/output_person1/model-best')
 # nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# x
 class CodePredictionModel(torch.nn.Module):
     def __init__(self, num_labels):
         super(CodePredictionModel, self).__init__()
@@ -181,13 +180,13 @@ def classify_date(entity_text, text):
     # Find the position of the date in text
     match = re.search(re.escape(entity_text_lower), text_lower)
     if not match:
-        return "Uncategorized Date"
+        return None
 
     date_start, date_end = match.start(), match.end()
 
     # Define search range (50 characters before and after)
-    search_start = max(0, date_start - 50)
-    search_end = min(len(text_lower), date_end + 50)
+    search_start = max(0, date_start - 10)
+    search_end = min(len(text_lower), date_end + 10)
     search_text = text_lower[search_start:search_end]
 
     # Search for the closest keyword within the range
@@ -215,7 +214,7 @@ def classify_date(entity_text, text):
                 min_distance = distance
                 closest_keyword = label
 
-    return closest_keyword if closest_keyword else "Uncategorized Date"
+    return closest_keyword 
 
 
 
