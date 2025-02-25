@@ -5,7 +5,9 @@ media/
 __pycache__/
 db.sqlite3
 *.csv
+*.txt
 
+custom_ner_model/
 models 1/
 output/
 output_person/
@@ -13,7 +15,12 @@ output_person1/
 output_person2/
 person/
 PDO/
+generated_texts/
 Person_date_output/
+date_output/
+sentence_transformer_model/
+name_extraction_model/
+extracted_texts/
 
 *.json
 *.pkl

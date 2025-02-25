@@ -21,8 +21,8 @@ import torch.nn as nn
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
 nlp_custom = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/model-best")
-nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/output/model-best")
-nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/output_person1/model-best')
+nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/date_output/model-best")
+# nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/output_person1/model-best')
 # nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -108,44 +108,6 @@ def desc_to_code(description, desc_model, Code_Tokenizer, code_encoder, device, 
         predicted_code = code_encoder.inverse_transform([predicted_idx.cpu().item()])[0]
         return predicted_code, confidence.cpu().item()
 
-""" Old Views of process_text_with_model"""
-# import re
-
-# def process_text_with_model(text):
-#     doc_custom = nlp_custom(text)
-#     doc_bc5cdr = nlp(text)
-#     doc_person = nlp_person(text)
-#     combined_entities = set()
-
-#     # Pattern to match MM/DD/YYYY or MM/DD/YY fromat
-#     date_pattern = r"\b(0[1-9]|1[0-2])/[0-3][0-9]/(\d{2}|\d{4})\b"
-
-#     # Extract entities (DIAGNOSIS + properly formatted DATE)
-#     for ent in doc_custom.ents:
-#         if ent.label_ in ["DIAGNOSIS", "DISEASE"]:
-#             combined_entities.add((ent.text, ent.label_))
-
-#     for ent in doc_bc5cdr.ents:
-#         if ent.label_ == "DATE" and re.fullmatch(date_pattern, ent.text):
-#             combined_entities.add((ent.text, ent.label_))
-
-#     for ent in doc_person.ents:
-#         if ent.label_ == "PERSON":
-#             combined_entities.add((ent.text , ent.label_))
-
-#     # Predict codes for extracted entities
-#     results = []
-#     for entity, label in combined_entities:
-#         if label in ["DIAGNOSIS", "DISEASE" , "DATE" , "PERSON"]:  # Predict code only for DIAGNOSIS
-#             predicted_code, confidence = desc_to_code(entity, desc_model, Code_Tokenizer, code_encoder, device)
-#             results.append((entity, predicted_code, confidence, label))
-        
-#         # else:  # DATE does not need a prediction
-#         #     results.append((entity, "", "", label))  
-
-#     return results
-
-""" Updated Views of process_text_with_model"""
 import re
 
 def classify_date(entity_text, text):
@@ -185,8 +147,8 @@ def classify_date(entity_text, text):
     date_start, date_end = match.start(), match.end()
 
     # Define search range (50 characters before and after)
-    search_start = max(0, date_start - 10)
-    search_end = min(len(text_lower), date_end + 10)
+    search_start = max(0, date_start - 50)
+    search_end = min(len(text_lower), date_end + 50)
     search_text = text_lower[search_start:search_end]
 
     # Search for the closest keyword within the range
@@ -217,16 +179,15 @@ def classify_date(entity_text, text):
     return closest_keyword 
 
 
-
 def process_text_with_model(text):
     doc_custom = nlp_custom(text)
     doc_bc5cdr = nlp(text)
-    doc_person = nlp_person(text)
+    # doc_person = nlp_person(text)
     combined_entities = set()
 
     # Pattern to match MM/DD/YYYY or MM/DD/YY format
     # date_pattern = r"\b(0[1-9]|1[0-2])/[0-3][0-9]/(\d{2}|\d{4})\b"
-    date_pattern = r"\b(0?[1-9]|1[0-2])/(0?[1-9]|[12][0-9]|3[01])/(?:\d{2}|\d{4})\b"
+    date_pattern = r"\b(?:\d{1,2}[/]\d{1,2}[/]\d{2,4}|\d{2,4}[/]\d{1,2}[/]\d{1,2})\b"
 
     # Extract entities (DIAGNOSIS + properly formatted DATE + PERSON)
     for ent in doc_custom.ents:
@@ -238,9 +199,9 @@ def process_text_with_model(text):
             date_type = classify_date(ent.text, text)  # Classify date type
             combined_entities.add((ent.text, ent.label_, date_type))  # Store date with type
 
-    for ent in doc_person.ents:
-        if ent.label_ == "PERSON":
-            combined_entities.add((ent.text, ent.label_))
+    # for ent in doc_person.ents:
+    #     if ent.label_ == "PERSON":
+    #         combined_entities.add((ent.text, ent.label_))
 
     # Predict codes for extracted entities
     results = []
