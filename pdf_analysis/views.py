@@ -30,25 +30,35 @@ embedding_model = SentenceTransformer("/home/balaji/POC/POC/EasyOCR-ChatBot/mode
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class CodePredictionModel(torch.nn.Module):
-    def __init__(self, num_labels):
-        super(CodePredictionModel, self).__init__()
-        self.bert = AutoModel.from_pretrained("bert-base-uncased")
-        self.dropout = torch.nn.Dropout(0.5)
-        self.fc = torch.nn.Linear(self.bert.config.hidden_size, num_labels)
+class DiagnosisModel(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(DiagnosisModel, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 128)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, output_dim)
+   
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+ 
+input_dim = 5000  # Set the same input dimension as when training
+output_dim = 14585  # Set the number of classes (update this based on your model)
+desc_model = DiagnosisModel(input_dim, output_dim)
+# Load the model's state_dict (weights)
+desc_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
+desc_model.eval()  # Set the model to evaluation mode
+code_encoder = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/label_encoder.pkl')  # Save and load the label encoder
+vectorizer = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
+def is_valid_description(description, threshold=0.3):
+    vectorized = vectorizer.transform([description]).toarray()
+    similarity = np.max(vectorized)  # Check highest TF-IDF match
+    return similarity > threshold
 
-    def forward(self, input_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = outputs.pooler_output
-        pooled_output = self.dropout(pooled_output)
-        return self.fc(pooled_output)
-
-desc_model = CodePredictionModel(num_labels=14585)
-desc_model.load_state_dict(torch.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/final_model.pth", map_location=device))
-desc_model.to(device)
-
-with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl", "rb") as f:
-    code_encoder = pickle.load(f)
+# with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl", "rb") as f:
+#     code_encoder = pickle.load(f)
 
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
@@ -119,23 +129,28 @@ tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 def clean_text(text):
     return re.sub(r'\s+', ' ', text).strip()
 
-def desc_to_code(description, desc_model, Code_Tokenizer, code_encoder, device, max_length=128):
+def desc_to_code(description, desc_model, vectorizer, code_encoder, device):
+    desc_model.eval()  # Set model to evaluation mode
+ 
     with torch.no_grad():
-        encoded = Code_Tokenizer(
-            description,
-            padding="max_length",
-            truncation=True,
-            max_length=max_length,
-            return_tensors="pt"
-        )
-        input_ids = encoded["input_ids"].to(device)
-        attention_mask = encoded["attention_mask"].to(device)
-        outputs = desc_model(input_ids, attention_mask)
+        # Vectorize input and convert to tensor
+        vectorized = vectorizer.transform([description]).toarray()
+        input_tensor = torch.tensor(vectorized, dtype=torch.float32)
+ 
+        # Ensure model and input tensor are on the same device
+        model_device = next(desc_model.parameters()).device
+        input_tensor = input_tensor.to(model_device)
+        desc_model.to(model_device)  # Ensure model is also on correct device
+ 
+        # Forward pass
+        outputs = desc_model(input_tensor)
         probabilities = F.softmax(outputs, dim=1)
+ 
+        # Get most probable class
         confidence, predicted_idx = torch.max(probabilities, dim=1)
         predicted_code = code_encoder.inverse_transform([predicted_idx.cpu().item()])[0]
+ 
         return predicted_code, confidence.cpu().item()
-
 import re
 
 def classify_date(entity_text, text):
@@ -238,7 +253,7 @@ def process_text_with_model(text):
         if len(entity_info) == 2:  # Non-date entities (DIAGNOSIS, PERSON)
             entity, label = entity_info
             if label in ["DIAGNOSIS", "DISEASE"]:
-                predicted_code, confidence = desc_to_code(entity, desc_model, Code_Tokenizer, code_encoder, device)
+                predicted_code, confidence = desc_to_code(entity, desc_model, vectorizer, code_encoder, device)
                 results.append((entity, predicted_code, confidence, label))
             else:
                 results.append((entity, "N/A", "N/A", label))
@@ -323,14 +338,25 @@ def predict_descriptions(user_code):
     return predicted_descriptions if predicted_descriptions else [f"No descriptions predicted for code '{user_code}'."]
 
 def predict_code(description):
-    encoded = tokenizer(description, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
-    input_ids = encoded["input_ids"].to(device)
-    attention_mask = encoded["attention_mask"].to(device)
-    outputs = desc_model(input_ids, attention_mask)
-    probabilities = F.softmax(outputs, dim=1)
-    confidence, predicted_idx = torch.max(probabilities, dim=1)
-    predicted_code = label_encoder.inverse_transform([predicted_idx.cpu().item()])[0]
-    return predicted_code, confidence.cpu().item()
+    desc_model.eval()
+    with torch.no_grad():
+        # Vectorize the input description
+        vectorized = vectorizer.transform([description]).toarray()
+        input_tensor = torch.tensor(vectorized, dtype=torch.float32)
+ 
+        # Move input tensor to the same device as the model
+        model_device = next(desc_model.parameters()).device
+        input_tensor = input_tensor.to(model_device)
+ 
+        # Get model predictions
+        outputs = desc_model(input_tensor)
+        probabilities = F.softmax(outputs, dim=1)
+ 
+        # Get the most probable code
+        confidence, predicted_idx = torch.max(probabilities, dim=1)
+        predicted_code = label_encoder.inverse_transform([predicted_idx.cpu().item()])[0]
+ 
+        return predicted_code, confidence.cpu().item()
 
 le_combo = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/combo_code_models/label_encoder.pkl')
 loaded_combo_model = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/combo_code_models/Decision_tree_model.pkl')
@@ -372,7 +398,11 @@ def chatbot(request):
 
         elif action == 'predict_code' and user_input:
             code, confidence = predict_code(user_input)
-            response['code_from_desc'] = {'code': code, 'confidence': confidence}
+            if is_valid_description(user_input):
+                response['code_from_desc'] = {'code': code, 'confidence': confidence}
+            else:
+                response['error'] = "Invalid description. Please provide a valid description."
+
 
         # print('Top of the Combo code....')
         elif action == 'predict_combo_code' and ',' in user_input:

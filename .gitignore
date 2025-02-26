@@ -18,9 +18,11 @@ PDO/
 generated_texts/
 Person_date_output/
 date_output/
+modified_texts/
 sentence_transformer_model/
 name_extraction_model/
 extracted_texts/
+ocr/
 
 *.json
 *.pkl
