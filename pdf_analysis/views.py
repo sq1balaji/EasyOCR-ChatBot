@@ -17,13 +17,16 @@ import re
 import hashlib
 import joblib
 import torch.nn as nn
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
 nlp_custom = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/model-best")
 nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/date_output/model-best")
-# nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/output_person1/model-best')
-# nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md-0.5.4/en_ner_bc5cdr_md/en_ner_bc5cdr_md-0.5.4")
+nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/name_extraction_model')
+embedding_model = SentenceTransformer("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/sentence_transformer_model")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -55,6 +58,31 @@ with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/code_to_idx.pkl"
 
 with open('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/mlb_classes.pkl', 'rb') as f:
     mlb_classes = pickle.load(f)
+
+# Functionality to extract the name...
+
+with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/name_embeddings.pkl", "rb") as f:
+    name_embedding_dict = pickle.load(f)
+
+known_names = list(name_embedding_dict.keys())
+known_embeddings = np.array(list(name_embedding_dict.values()))
+
+def extract_names(text):
+    """Extract potential names using spaCy NER"""
+    doc = nlp_person(text)
+    candidates = [ent.text.lower() for ent in doc.ents if ent.label_ == "PERSON"]
+    return list(set(candidates))  # Remove duplicates
+
+
+def find_best_match(extracted_name):
+    """Find best matching name using cosine similarity"""
+    extracted_emb = embedding_model.encode([extracted_name], convert_to_numpy=True)
+    similarities = cosine_similarity(extracted_emb, known_embeddings)[0]
+    best_match_index = np.argmax(similarities)
+    best_match_score = similarities[best_match_index]
+    
+    return known_names[best_match_index] if best_match_score >= 0.8 else extracted_name  # Return best match or original name
+
 
 num_codes = len(code_to_idx)
 num_labels = len(mlb_classes)
@@ -199,9 +227,10 @@ def process_text_with_model(text):
             date_type = classify_date(ent.text, text)  # Classify date type
             combined_entities.add((ent.text, ent.label_, date_type))  # Store date with type
 
-    # for ent in doc_person.ents:
-    #     if ent.label_ == "PERSON":
-    #         combined_entities.add((ent.text, ent.label_))
+    extracted_names = extract_names(text)
+    for name in extracted_names:
+        matched_name = find_best_match(name)  # Match with known names
+        combined_entities.add((matched_name, "PERSON"))  # Store matched names
 
     # Predict codes for extracted entities
     results = []
