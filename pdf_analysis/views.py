@@ -22,10 +22,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
-nlp_custom = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/Spacy-Models/model-best")
-nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/date_output/model-best")
-nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/name_extraction_model')
-embedding_model = SentenceTransformer("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/sentence_transformer_model")
+nlp_custom = spacy.load("/home/kishore/project@sq1/Notebooks/fianl_spacy-model/model-best")
+nlp_500to628 = spacy.load("/home/kishore/project@sq1/Notebooks/501to628/kaggle/working/output/model-best")
+nlp_250to500 = spacy.load("/home/kishore/project@sq1/Notebooks/250to500/kaggle/working/output/model-best")
+nlp = spacy.load("/home/kishore/project@sq1/Test/models 2/models 1/date_output/model-best")
+nlp_person = spacy.load('/home/kishore/project@sq1/Test/models 2/models 1/name_extraction_model')
+embedding_model = SentenceTransformer("/home/kishore/project@sq1/Test/models 2/models 1/sentence_transformer_model")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -48,10 +50,10 @@ input_dim = 5000  # Set the same input dimension as when training
 output_dim = 14585  # Set the number of classes (update this based on your model)
 desc_model = DiagnosisModel(input_dim, output_dim)
 # Load the model's state_dict (weights)
-desc_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
+desc_model.load_state_dict(torch.load('/home/kishore/project@sq1/Test/models 2/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
 desc_model.eval()  # Set the model to evaluation mode
-code_encoder = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/label_encoder.pkl')  # Save and load the label encoder
-vectorizer = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
+code_encoder = joblib.load('/home/kishore/project@sq1/Test/models 2/models 1/New_description_model/New_description_model/label_encoder.pkl')  # Save and load the label encoder
+vectorizer = joblib.load('/home/kishore/project@sq1/Test/models 2/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
 def is_valid_description(description, threshold=0.3):
     vectorized = vectorizer.transform([description]).toarray()
     similarity = np.max(vectorized)  # Check highest TF-IDF match
@@ -63,15 +65,15 @@ def is_valid_description(description, threshold=0.3):
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 # Load Model for Code Prediction
-with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/code_to_idx.pkl", 'rb') as f:
+with open("/home/kishore/project@sq1/Test/models 2/models 1/models/code_to_idx.pkl", 'rb') as f:
     code_to_idx = pickle.load(f)
 
-with open('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/mlb_classes.pkl', 'rb') as f:
+with open('/home/kishore/project@sq1/Test/models 2/models 1/models/mlb_classes.pkl', 'rb') as f:
     mlb_classes = pickle.load(f)
 
 # Functionality to extract the name...
 
-with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/name_embeddings.pkl", "rb") as f:
+with open("/home/kishore/project@sq1/Test/models 2/models 1/name_embeddings.pkl", "rb") as f:
     name_embedding_dict = pickle.load(f)
 
 known_names = list(name_embedding_dict.keys())
@@ -116,10 +118,10 @@ class MultiLabelModel(nn.Module):
 
 
 loaded_model = MultiLabelModel(num_codes, num_labels)
-loaded_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/diabetes_model.pth'))
+loaded_model.load_state_dict(torch.load('/home/kishore/project@sq1/Test/models 2/models 1/models/diabetes_model.pth'))
 loaded_model.eval()
 
-with open('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl', "rb") as f:
+with open('/home/kishore/project@sq1/Test/models 2/models 1/models/label_encoder.pkl', "rb") as f:
     label_encoder = pickle.load(f)
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -225,7 +227,9 @@ def classify_date(entity_text, text):
 def process_text_with_model(text):
     doc_custom = nlp_custom(text)
     doc_bc5cdr = nlp(text)
-    # doc_person = nlp_person(text)
+    doc_500to628 = nlp_500to628(text)
+    doc_250to500 = nlp_250to500(text)
+    doc_person = nlp_person(text)
     combined_entities = set()
 
     # Pattern to match MM/DD/YYYY or MM/DD/YY format
@@ -234,7 +238,13 @@ def process_text_with_model(text):
 
     # Extract entities (DIAGNOSIS + properly formatted DATE + PERSON)
     for ent in doc_custom.ents:
-        if ent.label_ in ["DIAGNOSIS", "DISEASE"]:
+        if ent.label_ in 'diagnosis':
+            combined_entities.add((ent.text, ent.label_))
+    for ent in doc_500to628.ents:
+        if ent.label_== 'diagnosis':
+            combined_entities.add((ent.text, ent.label_))
+    for ent in doc_250to500.ents:
+        if ent.label_== 'diagnosis':
             combined_entities.add((ent.text, ent.label_))
 
     for ent in doc_bc5cdr.ents:
@@ -246,15 +256,16 @@ def process_text_with_model(text):
     for name in extracted_names:
         matched_name = find_best_match(name)  # Match with known names
         combined_entities.add((matched_name, "PERSON"))  # Store matched names
-
     # Predict codes for extracted entities
+    # print(combined_entities)
     results = []
     for entity_info in combined_entities:
         if len(entity_info) == 2:  # Non-date entities (DIAGNOSIS, PERSON)
             entity, label = entity_info
-            if label in ["DIAGNOSIS", "DISEASE"]:
+            if label in 'diagnosis':
                 predicted_code, confidence = desc_to_code(entity, desc_model, vectorizer, code_encoder, device)
-                results.append((entity, predicted_code, confidence, label))
+                if confidence > 0.90:
+                    results.append((entity, predicted_code, confidence, label))
             else:
                 results.append((entity, "N/A", "N/A", label))
 
@@ -358,8 +369,8 @@ def predict_code(description):
  
         return predicted_code, confidence.cpu().item()
 
-le_combo = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/combo_code_models/label_encoder.pkl')
-loaded_combo_model = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/combo_code_models/Decision_tree_model.pkl')
+le_combo = joblib.load('/home/kishore/project@sq1/Test/models 2/models 1/combo_code_models/label_encoder.pkl')
+loaded_combo_model = joblib.load('/home/kishore/project@sq1/Test/models 2/models 1/combo_code_models/Decision_tree_model.pkl')
 
 def predict_combo_code(primary_code, secondary_code):
     primary_code = primary_code.strip().upper()

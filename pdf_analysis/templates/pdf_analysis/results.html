@@ -193,7 +193,7 @@
                 {% if model_results %}
                     <ul>
                         {% for entity_info in model_results %}
-                            {% if entity_info.3 == "DIAGNOSIS" %}
+                            {% if entity_info.3 == "diagnosis" %}
                                 <li>
                                     {{ entity_info.0 }},
                                     <span style="background-color:lightgray;">
@@ -225,10 +225,10 @@
     </div>
     
 
-    <div class="content-right">
+    <!-- <div class="content-right">
         <h2>Uploaded PDF</h2>
         <iframe src="{{ MEDIA_URL }}{{ pdf_url }}" title="Uploaded PDF"></iframe>
-    </div>
+    </div> -->
     <button id="open-chatbot">💬</button>
     <div id="chatbot-container">
         <div id="chat-header">Chatbot</div>
