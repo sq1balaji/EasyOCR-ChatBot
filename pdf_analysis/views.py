@@ -49,18 +49,17 @@ class DiagnosisModel(nn.Module):
 input_dim = 5000  # Set the same input dimension as when training
 output_dim = 14585  # Set the number of classes (update this based on your model)
 desc_model = DiagnosisModel(input_dim, output_dim)
+
 # Load the model's state_dict (weights)
 desc_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
 desc_model.eval()  # Set the model to evaluation mode
 code_encoder = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/label_encoder.pkl')
 vectorizer = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
+
 def is_valid_description(description, threshold=0.3):
     vectorized = vectorizer.transform([description]).toarray()
     similarity = np.max(vectorized)  # Check highest TF-IDF match
     return similarity > threshold
-
-# with open("/home/balaji/POC/POC/EasyOCR-ChatBot/models 1/models/label_encoder.pkl", "rb") as f:
-#     code_encoder = pickle.load(f)
 
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
@@ -83,7 +82,7 @@ def extract_names(text):
     """Extract potential names using spaCy NER"""
     doc = nlp_person(text)
     candidates = [ent.text.lower() for ent in doc.ents if ent.label_ == "PERSON"]
-    return list(set(candidates))  # Remove duplicates
+    return list(set(candidates))  
 
 
 def find_best_match(extracted_name):
@@ -93,7 +92,7 @@ def find_best_match(extracted_name):
     best_match_index = np.argmax(similarities)
     best_match_score = similarities[best_match_index]
     
-    return known_names[best_match_index] if best_match_score >= 0.8 else extracted_name  # Return best match or original name
+    return known_names[best_match_index] if best_match_score >= 0.8 else extracted_name 
 
 
 num_codes = len(code_to_idx)
@@ -126,13 +125,12 @@ with open('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/mod
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-# Helper Functions for Text and Model Prediction
 
 def clean_text(text):
     return re.sub(r'\s+', ' ', text).strip()
 
 def desc_to_code(description, desc_model, vectorizer, code_encoder, device):
-    desc_model.eval()  # Set model to evaluation mode
+    desc_model.eval()  
  
     with torch.no_grad():
         # Vectorize input and convert to tensor
@@ -209,12 +207,12 @@ def classify_date(entity_text, text):
             keyword_end += search_start
             
             # Calculate distance
-            if keyword_end <= date_start:  # Keyword is before date
+            if keyword_end <= date_start:  
                 distance = date_start - keyword_end
-            elif keyword_start >= date_end:  # Keyword is after date
+            elif keyword_start >= date_end:  
                 distance = keyword_start - date_end
             else:
-                continue  # Ignore if keyword overlaps the date
+                continue  
 
             # Assign closest keyword
             if distance < min_distance:
@@ -232,11 +230,8 @@ def process_text_with_model(text):
     doc_person = nlp_person(text)
     combined_entities = set()
 
-    # Pattern to match MM/DD/YYYY or MM/DD/YY format
-    # date_pattern = r"\b(0[1-9]|1[0-2])/[0-3][0-9]/(\d{2}|\d{4})\b"
     date_pattern = r"\b(?:\d{1,2}[/]\d{1,2}[/]\d{2,4}|\d{2,4}[/]\d{1,2}[/]\d{1,2})\b"
 
-    # Extract entities (DIAGNOSIS + properly formatted DATE + PERSON)
     for ent in doc_custom.ents:
         if ent.label_ in 'diagnosis':
             combined_entities.add((ent.text, ent.label_))
@@ -254,10 +249,9 @@ def process_text_with_model(text):
 
     extracted_names = extract_names(text)
     for name in extracted_names:
-        matched_name = find_best_match(name)  # Match with known names
-        combined_entities.add((matched_name, "PERSON"))  # Store matched names
-    # Predict codes for extracted entities
-    # print(combined_entities)
+        matched_name = find_best_match(name)  
+        combined_entities.add((matched_name, "PERSON"))  
+    
     results = []
     for entity_info in combined_entities:
         if len(entity_info) == 2:  # Non-date entities (DIAGNOSIS, PERSON)
@@ -317,8 +311,7 @@ def upload_pdf(request):
 
             # Use MEDIA_URL to get the file path for the uploaded PDF
             pdf_url = pdf_instance.file.url  # This gives the relative URL
-            # print(pdf_url)
-            
+                        
             results = []
 
             # Process the uploaded PDF
@@ -336,8 +329,7 @@ def upload_pdf(request):
 
 # Functions for predictions
 
-def predict_descriptions(user_code):
-    # print('Inside Func....')
+def predict_descriptions(user_code):    
     user_code = user_code.upper()
     if user_code not in code_to_idx:
         return [f"No descriptions predicted for code '{user_code}'."]
@@ -374,9 +366,7 @@ loaded_combo_model = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analy
 
 def predict_combo_code(primary_code, secondary_code):
     primary_code = primary_code.strip().upper()
-    secondary_code = secondary_code.strip().upper()
-
-    # print('Inside Combo code func...')
+    secondary_code = secondary_code.strip().upper()    
 
     # Try encoding the codes, return error if they are unknown
     try:
@@ -413,9 +403,7 @@ def chatbot(request):
                 response['code_from_desc'] = {'code': code, 'confidence': confidence}
             else:
                 response['error'] = "Invalid description. Please provide a valid description."
-
-
-        # print('Top of the Combo code....')
+        
         elif action == 'predict_combo_code' and ',' in user_input:
             print('Inside Combo code')
             primary_code, secondary_code = user_input.split(',')
