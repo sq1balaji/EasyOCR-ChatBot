@@ -22,12 +22,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Load OCR and Models
 reader = easyocr.Reader(['en'], gpu=True)
-nlp_custom = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/final_models/final_models/fianl_spacy-model/model-best")
-nlp_500to628 = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/final_models/final_models/501to628/kaggle/working/output/model-best")
-nlp_250to500 = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/final_models/final_models/250to500/kaggle/working/output/model-best")
-nlp = spacy.load("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/date_output/model-best")
-nlp_person = spacy.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/name_extraction_model')
-embedding_model = SentenceTransformer("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/sentence_transformer_model")
+nlp_custom = spacy.load("pdf_analysis/models/final_models/final_models/fianl_spacy-model/model-best")
+nlp_500to628 = spacy.load("pdf_analysis/models/final_models/final_models/501to628/kaggle/working/output/model-best")
+nlp_250to500 = spacy.load("pdf_analysis/models/final_models/final_models/250to500/kaggle/working/output/model-best")
+nlp = spacy.load("pdf_analysis/models/models 1/date_output/model-best")
+nlp_person = spacy.load('pdf_analysis/models/models 1/name_extraction_model')
+embedding_model = SentenceTransformer("pdf_analysis/models/models 1/sentence_transformer_model")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -51,10 +51,10 @@ output_dim = 14585  # Set the number of classes (update this based on your model
 desc_model = DiagnosisModel(input_dim, output_dim)
 
 # Load the model's state_dict (weights)
-desc_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
+desc_model.load_state_dict(torch.load('pdf_analysis/models/models 1/New_description_model/New_description_model/diagnosis_model.pth'))
 desc_model.eval()  # Set the model to evaluation mode
-code_encoder = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/label_encoder.pkl')
-vectorizer = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
+code_encoder = joblib.load('pdf_analysis/models/models 1/New_description_model/New_description_model/label_encoder.pkl')
+vectorizer = joblib.load('pdf_analysis/models/models 1/New_description_model/New_description_model/tfidf_vectorizer.pkl')
 
 def is_valid_description(description, threshold=0.3):
     vectorized = vectorizer.transform([description]).toarray()
@@ -64,15 +64,15 @@ def is_valid_description(description, threshold=0.3):
 Code_Tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 # Load Model for Code Prediction
-with open("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/models/code_to_idx.pkl", 'rb') as f:
+with open("pdf_analysis/models/models 1/models/code_to_idx.pkl", 'rb') as f:
     code_to_idx = pickle.load(f)
 
-with open('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/models/mlb_classes.pkl', 'rb') as f:
+with open('pdf_analysis/models/models 1/models/mlb_classes.pkl', 'rb') as f:
     mlb_classes = pickle.load(f)
 
 # Functionality to extract the name...
 
-with open("/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/name_embeddings.pkl", "rb") as f:
+with open("pdf_analysis/models/name_embeddings.pkl", "rb") as f:
     name_embedding_dict = pickle.load(f)
 
 known_names = list(name_embedding_dict.keys())
@@ -117,10 +117,10 @@ class MultiLabelModel(nn.Module):
 
 
 loaded_model = MultiLabelModel(num_codes, num_labels)
-loaded_model.load_state_dict(torch.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/models/diabetes_model.pth'))
+loaded_model.load_state_dict(torch.load('pdf_analysis/models/models 1/models/diabetes_model.pth'))
 loaded_model.eval()
 
-with open('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/models/label_encoder.pkl', "rb") as f:
+with open('pdf_analysis/models/models 1/models/label_encoder.pkl', "rb") as f:
     label_encoder = pickle.load(f)
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -276,8 +276,6 @@ def process_page(image, page_number):
 
     # Record the start time for OCR
     start_time = time.time()
-    
-    # Perform OCR on the image
     image_np = np.array(image)
     results = reader.readtext(image_np)
     page_text = ' '.join([result[1] for result in results])
@@ -361,8 +359,8 @@ def predict_code(description):
  
         return predicted_code, confidence.cpu().item()
 
-le_combo = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/combo_code_models/label_encoder.pkl')
-loaded_combo_model = joblib.load('/home/balaji/POC/POC/EasyOCR-ChatBot/pdf_analysis/models/models 1/combo_code_models/Decision_tree_model.pkl')
+le_combo = joblib.load('pdf_analysis/models/models 1/combo_code_models/label_encoder.pkl')
+loaded_combo_model = joblib.load('pdf_analysis/models/models 1/combo_code_models/Decision_tree_model.pkl')
 
 def predict_combo_code(primary_code, secondary_code):
     primary_code = primary_code.strip().upper()
